@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 /* Script that handles logic and interactions for wolf enemy. It randomly moves to
  * one of the four corners of the map and positions itself. The wolf locks onto
@@ -13,69 +13,59 @@ public class EnemyWolfController : MonoBehaviour
     public GameObject target;
     public GameObject projectilePrefab;
     public GameObject menuHandler;
-    public GameObject soundManager;
 
     // Adjustable properties
     public float speed = 8.0f;
 
-    // Components from dependancies
-    private Vector3 spawnPosition;
-    private SoundController soundController;
+    // Movement/Positioning 
+    private Vector3 _targetPosition;
+    private float _runToMovePointTimer = 3.0f;
+    private bool _atTargetPosition;
 
-    // Wolf logic parameters
-    private float runToMovePointTimer = 3.0f;
-    private float maxBorkTimer = 7.0f;
-    private float borkTimer;
+    // Attack pattern
+    private float _maxBorkTimer = 7.0f;
+    private float _borkTimer;
+
+    // Sound
     private bool isSpawnSoundPlayed = false;
 
-    // Initialization
-    private void Awake()
+    private void Start()
     {
-        soundController = soundManager.GetComponent<SoundController>();
-
         transform.position = new Vector3(0, -8, 0); // Initial spawn position at bottom of map
         PickRandomPosition();
-        RotateTowards(spawnPosition);
+        RotateTowards(_targetPosition);
     }
 
-    // FixedUpdate is called every fixed framerate
     private void FixedUpdate()
     {
-        runToMovePointTimer -= Time.deltaTime;
-        borkTimer -= Time.deltaTime;
+        _runToMovePointTimer -= Time.fixedDeltaTime;
+        _borkTimer -= Time.fixedDeltaTime;
 
-        if (runToMovePointTimer > 0)
+        if (_runToMovePointTimer > 0)
         {
-            if (spawnPosition != transform.position)
+            if (_targetPosition != transform.position)
             {
                 if (!isSpawnSoundPlayed)
                 {
-                    soundController.PlaySound("EnemyWolfSpawn");
+                    SoundController.PlaySound("EnemyWolfSpawn");
                     isSpawnSoundPlayed = true;
                 }
                 Move();
             }
+            else
+            {
+                _atTargetPosition = true;
+            }
 
         }
-        else
+
+        if (_atTargetPosition)
         {
             RotateTowards(target.transform.position);
-            if (borkTimer < 0)
+            if (_borkTimer < 0)
             {
                 CreateProjectile();
             }
-        }
-    }
-    
-    // If player projectile hits the wolf, play sound and destroy the wolf
-    private void OnTriggerEnter2D(Collider2D other)
-    {
-        ProjectileController projectile = other.GetComponent<ProjectileController>();
-
-        if (projectile != null)
-        {
-            soundController.PlaySound("EnemyWolfDeath");
-            Destroy(gameObject);
         }
     }
 
@@ -91,9 +81,21 @@ public class EnemyWolfController : MonoBehaviour
 
     }
 
+    // If player projectile hits the wolf, play sound and destroy the wolf
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        ProjectileController projectile = other.GetComponent<ProjectileController>();
+
+        if (projectile != null)
+        {
+            SoundController.PlaySound("EnemyWolfDeath");
+            Destroy(gameObject);
+        }
+    }
+
     private void Move()
     {
-        transform.position = Vector3.MoveTowards(transform.position, spawnPosition, speed * Time.deltaTime);
+        transform.position = Vector3.MoveTowards(transform.position, _targetPosition, speed * Time.deltaTime);
     }
 
     // Randomly choose number from 0 - number of spawn positions. Set wolf position
@@ -101,7 +103,7 @@ public class EnemyWolfController : MonoBehaviour
     private void PickRandomPosition()
     {
         int spawnNumber = Random.Range(0, spawnPositions.transform.childCount);
-        spawnPosition = spawnPositions.transform.GetChild(spawnNumber).transform.position;
+        _targetPosition = spawnPositions.transform.GetChild(spawnNumber).transform.position;
     }
 
     // Rotates sprite towards inputted Vector3
@@ -112,8 +114,7 @@ public class EnemyWolfController : MonoBehaviour
         transform.rotation = Quaternion.Euler(new Vector3(0, 0, angle));
     }
 
-    // Initialization of projectile that will come from the wolf's mouth and move towards
-    // the player
+    // Initialization of projectile that will come from the wolf's mouth and move towards the player
     private void CreateProjectile()
     {
         GameObject bork = Instantiate<GameObject>(projectilePrefab);
@@ -121,6 +122,6 @@ public class EnemyWolfController : MonoBehaviour
         bork.transform.position = transform.GetChild(0).position;
         bork.transform.rotation = this.transform.rotation;
         bork.GetComponent<Rigidbody2D>().AddForce(transform.up * speed);
-        borkTimer = maxBorkTimer;
+        _borkTimer = _maxBorkTimer;
     }
 }
